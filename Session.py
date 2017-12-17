@@ -13,6 +13,8 @@ import sys
 import os
 import Tools as N
 
+import mem_util
+
 def accuracy(logits,labels):
   with tf.name_scope('accuracy'):
     if labels.get_shape().ndims<2:
@@ -26,6 +28,29 @@ def accuracy(logits,labels):
 
     accuracy5=100*tf.reduce_mean(tf.cast(cp5, tf.float32))
   return accuracy, accuracy5
+
+GLOBAL_PROFILE = True
+run_metadata = True
+def sessrun(*args, **kwargs):
+  global global_sess, run_metadata
+
+  sess = global_sess
+  
+  if not GLOBAL_PROFILE:
+    return sess.run(*args, **kwargs)
+  
+  run_metadata = tf.RunMetadata()
+
+  kwargs['options'] = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
+  kwargs['run_metadata'] = run_metadata
+  result = sess.run(*args, **kwargs)
+  first_entry = args[0]
+  if isinstance(first_entry, list):
+    if len(first_entry) == 0 and len(args) == 1:
+      return None
+    first_entry = first_entry[0]
+
+  return result
 
 def create_logger(save_path):
   if not os.path.exists(save_path):
@@ -140,6 +165,8 @@ class TF_session(object):
 
   def _create_graph(self):
 
+    global sess
+    
     self.graph = tf.Graph()
     with self.graph.as_default():
       tf_global_step = tf.contrib.framework.get_or_create_global_step()
@@ -229,12 +256,13 @@ class TF_session(object):
       self.training_summary_op = tf.summary.merge(tf.get_collection('TRAINING_SUMMARIES'))
 
   def run(self,iterations,log_freq=500):
+    global global_sess
+    
     with tf.Session(graph=self.graph,config=self.config) as sess:
+      global_sess = sess
       self._print_trainable_variables()
 
       tf.global_variables_initializer().run(session=sess)
-      run_options=None
-      run_metadata=None
 
       start = timer()
       header=str()
@@ -276,19 +304,19 @@ class TF_session(object):
           if step==0: # calculate loss etc without train_op
             l, batch_xent, batch_acc, batch_acc5,\
             train_xent, train_acc, train_acc5,\
-            valid_xent, valid_acc, valid_acc5, summary=sess.run([
+            valid_xent, valid_acc, valid_acc5, summary=sessrun([
               self.loss, self.batch_xent, self.batch_accuracy, self.batch_accuracy5,
               self.train_xent, self.train_accuracy, self.train_accuracy5,
               self.valid_xent, self.valid_accuracy, self.valid_accuracy5, summaries],
-              feed_dict=feed_dict, options=run_options, run_metadata=run_metadata)
+              feed_dict=feed_dict)
           else:
             _, l, batch_xent, batch_acc, batch_acc5,\
             train_xent, train_acc, train_acc5,\
-            valid_xent, valid_acc, valid_acc5, summary=sess.run([self.train_op,
+            valid_xent, valid_acc, valid_acc5, summary=sessrun([self.train_op,
               self.loss, self.batch_xent, self.batch_accuracy, self.batch_accuracy5,
               self.train_xent, self.train_accuracy, self.train_accuracy5,
               self.valid_xent, self.valid_accuracy, self.valid_accuracy5, summaries],
-              feed_dict=feed_dict, options=run_options, run_metadata=run_metadata)
+              feed_dict=feed_dict)
 
           end_acc= timer()
           end = timer()
@@ -328,7 +356,7 @@ class TF_session(object):
 
         else:
           start_it = timer()
-          _=sess.run([self.train_op],feed_dict=feed_dict, options=run_options, run_metadata=run_metadata)
+          _=sessrun([self.train_op],feed_dict=feed_dict)
           end_it = timer()
           batch_times.extend([end_it - start_it])
           ex_per_batch.extend([self.dataset.batch_size/batch_times[-1]])
@@ -338,6 +366,9 @@ class TF_session(object):
             ex_per_batch=ex_per_batch[-100:]
 
         self.global_step += 1
+        if run_metadata:
+          mem_use = mem_util.peak_memory(run_metadata)['/gpu:0']/1e6
+          print("Memory: %.2f MB" %(mem_use,))
 
     pickle.dump( self.Results, open( self.save_path + "/Results.pickle", "wb" ) )
     self.train_writer.close()
@@ -364,19 +395,4 @@ class TF_session(object):
     plt.xlabel('Iterations')
     plt.legend(loc='best')
     plt.show()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 

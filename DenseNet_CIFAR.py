@@ -4,6 +4,9 @@ Written by Dominic Masters, Graphcore, dominic.masters@graphcore.ai
 ==========================================================
 """
 
+import os
+os.environ['TF_CUDNN_USE_AUTOTUNE']='0'
+
 import Session as IC
 import tensorflow as tf
 import numpy as np
@@ -13,6 +16,10 @@ import DenseNet
 from Static_Dataset import Static_Dataset
 import Augmentation as Aug
 import CIFAR10_data as CIFAR10
+
+from google.protobuf.internal import api_implementation
+if api_implementation._default_implementation_type != 'cpp':
+  print("Warning, using slow protobuf, install protobuf pip as specified https://www.tensorflow.org/install/install_mac#protobuf_pip_package_31")
 
 DATA = CIFAR10.create_datasets(train_size = 50000, valid_size = 0, test_size = 10000,
   normalise=True, compact=True, test_as_valid=True,
@@ -35,5 +42,5 @@ optimiser={'fun':tf.train.MomentumOptimizer, 'args':[0.9], 'narg':{'use_nesterov
 S=IC.TF_session(D,inference, learning_r, optimiser=optimiser, augmentation_fun=augmentation_fun,
   log_dir='./logs/CIFAR_DenseNet/', name='DenseNet100_full', calc_valid_acc=True, calc_train_acc=True)
 
-S.run(tot_it,2)
+S.run(tot_it,1000)
 
