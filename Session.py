@@ -122,7 +122,7 @@ class TF_session(object):
     self.Results=list()
 
   def _train(self, total_loss, tf_global_step):
-                lr = tf.constant(0.1)
+    lr = tf.constant(0.1)
     tf.summary.scalar('learning_rate', lr, collections=["TRAINING_SUMMARIES"])
     optimiser=self.optimiser['fun'](lr ,*self.optimiser['args'],**self.optimiser['nargs'])
     grads = optimiser.compute_gradients(total_loss)
@@ -265,8 +265,8 @@ class TF_session(object):
 
       for step in range(iterations):
         feed_dict = self.dataset.get_next_batch()
-                                print("Step: ", step)
-                                sys.exit()
+        print("Step: ", step)
+        
         if (step % log_freq == 0) or step==iterations-1:
           summaries=list()
           if self.train_sum_freq=='all' or (self.train_sum_freq=='end' and step==iterations-1):

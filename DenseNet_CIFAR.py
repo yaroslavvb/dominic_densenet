@@ -35,5 +35,5 @@ optimiser={'fun':tf.train.MomentumOptimizer, 'args':[0.9], 'narg':{'use_nesterov
 S=IC.TF_session(D,inference, learning_r, optimiser=optimiser, augmentation_fun=augmentation_fun,
   log_dir='./logs/CIFAR_DenseNet/', name='DenseNet100_full', calc_valid_acc=True, calc_train_acc=True)
 
-S.run(tot_it,1000)
+S.run(tot_it,2)
 
